@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Service Worker Registration
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
     }
 
+    // 2. DOM Elements
     const tokenInput = document.getElementById('gh-token');
     const repoInput = document.getElementById('gh-repo');
     const folderInput = document.getElementById('gh-folder');
@@ -13,51 +15,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyList = document.getElementById('history-list');
     const themeSelector = document.getElementById('theme-selector');
 
-    // --- Theme Management ---
+    // 3. Theme Management
     const savedTheme = localStorage.getItem('ghTheme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    themeSelector.value = savedTheme;
+    if(themeSelector) themeSelector.value = savedTheme;
 
-    themeSelector.addEventListener('change', (e) => {
-        document.documentElement.setAttribute('data-theme', e.target.value);
-        localStorage.setItem('ghTheme', e.target.value);
-    });
+    if(themeSelector) {
+        themeSelector.addEventListener('change', (e) => {
+            document.documentElement.setAttribute('data-theme', e.target.value);
+            localStorage.setItem('ghTheme', e.target.value);
+        });
+    }
 
-    // --- Load Saved Credentials ---
+    // 4. Load Saved Credentials
     tokenInput.value = localStorage.getItem('ghToken') || '';
     repoInput.value = localStorage.getItem('ghRepo') || '';
     if(folderInput) folderInput.value = localStorage.getItem('ghFolder') || '';
 
     checkSharedFiles();
 
-    // --- Paste from Clipboard Logic ---
-    pasteBtn.addEventListener('click', async () => {
-        try {
-            const clipboardItems = await navigator.clipboard.read();
-            const dataTransfer = new DataTransfer();
-            
-            for (const item of clipboardItems) {
-                const imageTypes = item.types.filter(type => type.startsWith('image/'));
-                for (const type of imageTypes) {
-                    const blob = await item.getType(type);
-                    const file = new File([blob], `pasted_${Date.now()}.${type.split('/')[1]}`, { type });
-                    dataTransfer.items.add(file);
+    // 5. Paste from Clipboard Logic
+    if(pasteBtn) {
+        pasteBtn.addEventListener('click', async () => {
+            try {
+                const clipboardItems = await navigator.clipboard.read();
+                const dataTransfer = new DataTransfer();
+                
+                for (const item of clipboardItems) {
+                    const imageTypes = item.types.filter(type => type.startsWith('image/'));
+                    for (const type of imageTypes) {
+                        const blob = await item.getType(type);
+                        const file = new File([blob], `pasted_${Date.now()}.${type.split('/')[1]}`, { type });
+                        dataTransfer.items.add(file);
+                    }
                 }
-            }
 
-            if (dataTransfer.files.length > 0) {
-                fileInput.files = dataTransfer.files;
-                statusMsg.innerText = `${dataTransfer.files.length} image(s) pasted!`;
-            } else {
-                alert('No image found in clipboard.');
+                if (dataTransfer.files.length > 0) {
+                    fileInput.files = dataTransfer.files;
+                    statusMsg.innerText = `${dataTransfer.files.length} image(s) pasted!`;
+                } else {
+                    alert('No image found in clipboard.');
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard', err);
+                alert('Clipboard access denied or empty.');
             }
-        } catch (err) {
-            console.error('Failed to read clipboard', err);
-            alert('Clipboard access denied or empty.');
-        }
-    });
+        });
+    }
 
-    // --- Multiple Upload Logic ---
+    // 6. Multiple Upload Logic
     uploadBtn.addEventListener('click', async () => {
         const files = Array.from(fileInput.files);
         if (files.length === 0) return alert('Please select a file.');
@@ -129,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('ghHistory', JSON.stringify(history));
     }
 
+    // 7. Render History List
     function renderHistory() {
         historyList.innerHTML = '';
         let history = JSON.parse(localStorage.getItem('ghHistory')) || [];
@@ -138,12 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'history-item';
             
             const isImage = item.type.startsWith('image/');
-            // Replaced modal click with window.open to open in Chrome directly
-            const thumb = isImage ? `<img src="${item.url}" class="history-thumb" onclick="window.open('${item.url}', '_blank')" alt="thumbnail">` : `<div class="history-thumb" onclick="window.open('${item.url}', '_blank')">File</div>`;
-          const thumb = isImage 
-    ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')" alt="thumbnail">` 
-    : `<div class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')">${item.type.split('/')[0].toUpperCase() || 'FILE'}</div>`;
-
+            const thumb = isImage 
+                ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')" alt="thumbnail">` 
+                : `<div class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')">${item.type.split('/')[0].toUpperCase() || 'FILE'}</div>`;
             const markdownCode = isImage ? `![Image](${item.url})` : `[File](${item.url})`;
 
             div.innerHTML = `
@@ -160,12 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Global functions for Inline HTML attributes ---
+    // 8. Global Functions (Clipboard & Delete)
     window.copyToClipboard = function(element) {
         element.select();
         navigator.clipboard.writeText(element.value);
         
-        // Brief visual feedback
         const originalBg = element.style.backgroundColor;
         element.style.backgroundColor = '#2ea44f';
         element.style.color = '#fff';
@@ -182,7 +185,40 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory();
     }
 
-    // --- Retrieve Multiple Shared Files from PWA ---
+    // 9. Dynamic Preview Modal Logic
+    window.openPreview = function(url, type) {
+        const modal = document.getElementById('preview-modal');
+        const container = document.getElementById('modal-content-container');
+        
+        container.innerHTML = ''; // Clear previous content
+
+        if (type.startsWith('image/')) {
+            container.innerHTML = `<img src="${url}" alt="Preview">`;
+        } else if (type.startsWith('video/')) {
+            container.innerHTML = `<video controls autoplay name="media"><source src="${url}" type="${type}"></video>`;
+        } else if (type.startsWith('audio/')) {
+            container.innerHTML = `<audio controls autoplay name="media"><source src="${url}" type="${type}"></audio>`;
+        } else {
+            // Fallback for PDFs, ZIPs, or unknown files
+            window.open(url, '_blank');
+            return; 
+        }
+
+        modal.style.display = "block";
+    }
+
+    const closeModalBtn = document.querySelector('.close-modal');
+    if (closeModalBtn) {
+        closeModalBtn.onclick = function() {
+            const modal = document.getElementById('preview-modal');
+            const container = document.getElementById('modal-content-container');
+            
+            modal.style.display = "none";
+            container.innerHTML = ''; // Stops media from playing in background
+        }
+    }
+
+    // 10. Retrieve Multiple Shared Files from PWA Cache
     async function checkSharedFiles() {
         if ('caches' in window) {
             const cache = await caches.open('shared-files');
@@ -211,5 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Initial render
     renderHistory();
 });
