@@ -6,14 +6,13 @@
     <title>GH Uploader</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2ea44f">
+    <meta name="theme-color" content="#f6f8fa" id="theme-meta">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>GH Uploader</h1>
             <p>Upload directly to GitHub Pages</p>
-            
             <select id="theme-selector">
                 <option value="light">Light Mode</option>
                 <option value="dark">Dark Mode</option>
@@ -41,11 +40,6 @@
             <h2>Upload History</h2>
             <div id="history-list"></div>
         </section>
-    </div>
-
-    <div id="preview-modal" class="modal">
-        <span class="close-modal">&times;</span>
-        <div id="modal-content-container" class="modal-content"></div>
     </div>
 
     <script src="app.js"></script>
