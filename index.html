@@ -26,11 +26,16 @@
             <input type="text" id="gh-folder" placeholder="Folder (leave blank for root)" />
         </section>
 
-        <section class="upload-section">
-            <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip" />
-            <button id="upload-btn">Upload File</button>
-            <div id="status-message"></div>
-        </section>
+<section class="upload-section">
+    <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip, video/*, audio/*" multiple />
+    
+    <div class="action-buttons">
+        <button id="paste-btn">Paste Image</button>
+        <button id="upload-btn">Upload File(s)</button>
+    </div>
+    <div id="status-message"></div>
+</section>
+
 
         <section class="history-section">
             <h2>Upload History</h2>
