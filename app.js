@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Service Worker Registration
+    // 1. Service Worker Registration (Using relative path for GitHub Pages)
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
+        navigator.serviceWorker.register('./sw.js');
     }
 
     // 2. DOM Elements
@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     repoInput.value = localStorage.getItem('ghRepo') || '';
     if(folderInput) folderInput.value = localStorage.getItem('ghFolder') || '';
 
+    // Check for files shared via Android Share Sheet
     checkSharedFiles();
 
     // 5. Paste from Clipboard Logic
@@ -144,10 +145,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement('div');
             div.className = 'history-item';
             
-            const isImage = item.type.startsWith('image/');
+            // Safely check type in case older history items don't have it
+            const itemType = item.type || 'unknown'; 
+            const isImage = itemType.startsWith('image/');
+            
             const thumb = isImage 
-                ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')" alt="thumbnail">` 
-                : `<div class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')">${item.type.split('/')[0].toUpperCase() || 'FILE'}</div>`;
+                ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${itemType}')" alt="thumbnail">` 
+                : `<div class="history-thumb" onclick="openPreview('${item.url}', '${itemType}')">${itemType.split('/')[0].toUpperCase() || 'FILE'}</div>`;
+            
             const markdownCode = isImage ? `![Image](${item.url})` : `[File](${item.url})`;
 
             div.innerHTML = `
@@ -185,26 +190,54 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory();
     }
 
-    // 9. Dynamic Preview Modal Logic
+    // 9. Bulletproof Preview Modal Logic
     window.openPreview = function(url, type) {
         const modal = document.getElementById('preview-modal');
-        const container = document.getElementById('modal-content-container');
+        let container = document.getElementById('modal-content-container');
         
+        // Fallback for legacy items without a type
+        if (!type || type === 'undefined' || type === 'unknown') {
+            type = 'image/png'; 
+        }
+
+        // Auto-fix if cached HTML is still using the old modal structure
+        if (!container) {
+            const oldImg = document.getElementById('modal-image');
+            if (oldImg) {
+                oldImg.outerHTML = '<div id="modal-content-container" class="modal-content"></div>';
+                container = document.getElementById('modal-content-container');
+            } else {
+                return alert("Modal container not found. Please clear cache and reload.");
+            }
+        }
+
         container.innerHTML = ''; // Clear previous content
 
+        // Inject media with explicit inline styles to force correct sizing
         if (type.startsWith('image/')) {
-            container.innerHTML = `<img src="${url}" alt="Preview">`;
+            container.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; margin: auto;">`;
         } else if (type.startsWith('video/')) {
-            container.innerHTML = `<video controls autoplay name="media"><source src="${url}" type="${type}"></video>`;
+            container.innerHTML = `<video controls autoplay name="media" style="max-width: 90vw; max-height: 80vh; margin: auto; display: block;"><source src="${url}" type="${type}"></video>`;
         } else if (type.startsWith('audio/')) {
-            container.innerHTML = `<audio controls autoplay name="media"><source src="${url}" type="${type}"></audio>`;
+            container.innerHTML = `<audio controls autoplay name="media" style="width: 80vw; margin: auto; display: block;"><source src="${url}" type="${type}"></audio>`;
         } else {
-            // Fallback for PDFs, ZIPs, or unknown files
+            // Fallback for ZIPs, PDFs, etc.
             window.open(url, '_blank');
             return; 
         }
 
-        modal.style.display = "block";
+        // Force Flexbox centering directly on the modal element to override any CSS mismatches
+        modal.style.display = "flex";
+        modal.style.alignItems = "center";
+        modal.style.justifyContent = "center";
+        
+        const closeBtn = document.querySelector('.close-modal');
+        if (closeBtn) {
+            closeBtn.style.position = "absolute";
+            closeBtn.style.top = "15px";
+            closeBtn.style.right = "25px";
+            closeBtn.style.zIndex = "1001";
+        }
     }
 
     const closeModalBtn = document.querySelector('.close-modal');
@@ -214,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('modal-content-container');
             
             modal.style.display = "none";
-            container.innerHTML = ''; // Stops media from playing in background
+            if (container) container.innerHTML = ''; // Stops audio/video playback
         }
     }
 
