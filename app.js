@@ -1,10 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Service Worker Registration (Using relative path for GitHub Pages)
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js');
+        navigator.serviceWorker.register('sw.js');
     }
 
-    // 2. DOM Elements
     const tokenInput = document.getElementById('gh-token');
     const repoInput = document.getElementById('gh-repo');
     const folderInput = document.getElementById('gh-folder');
@@ -14,28 +12,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusMsg = document.getElementById('status-message');
     const historyList = document.getElementById('history-list');
     const themeSelector = document.getElementById('theme-selector');
+    const themeMeta = document.getElementById('theme-meta');
 
-    // 3. Theme Management
+    // --- Dynamic Status Bar & Theme Management ---
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        if (themeMeta) {
+            if (theme === 'dark') themeMeta.content = '#0d1117';
+            else if (theme === 'black') themeMeta.content = '#000000';
+            else themeMeta.content = '#f6f8fa'; // light
+        }
+    }
+
     const savedTheme = localStorage.getItem('ghTheme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    applyTheme(savedTheme);
     if(themeSelector) themeSelector.value = savedTheme;
 
     if(themeSelector) {
         themeSelector.addEventListener('change', (e) => {
-            document.documentElement.setAttribute('data-theme', e.target.value);
+            applyTheme(e.target.value);
             localStorage.setItem('ghTheme', e.target.value);
         });
     }
 
-    // 4. Load Saved Credentials
+    // --- Load Saved Credentials ---
     tokenInput.value = localStorage.getItem('ghToken') || '';
     repoInput.value = localStorage.getItem('ghRepo') || '';
     if(folderInput) folderInput.value = localStorage.getItem('ghFolder') || '';
 
-    // Check for files shared via Android Share Sheet
     checkSharedFiles();
 
-    // 5. Paste from Clipboard Logic
+    // --- jsDelivr URL Converter ---
+    function getCdnUrl(rawUrl) {
+        // Converts raw.githubusercontent.com/owner/repo/branch/path 
+        // to cdn.jsdelivr.net/gh/owner/repo@branch/path
+        return rawUrl.replace(
+            /raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/([^\/]+)\//, 
+            'cdn.jsdelivr.net/gh/$1/$2@$3/'
+        );
+    }
+
+    // --- Paste from Clipboard Logic ---
     if(pasteBtn) {
         pasteBtn.addEventListener('click', async () => {
             try {
@@ -64,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 6. Multiple Upload Logic
+    // --- Multiple Upload Logic ---
     uploadBtn.addEventListener('click', async () => {
         const files = Array.from(fileInput.files);
         if (files.length === 0) return alert('Please select a file.');
@@ -106,7 +123,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 if (response.ok) {
                     successCount++;
-                    saveToHistory(data.content.download_url, file.type);
+                    // Convert raw URL to CDN URL right away before saving to history
+                    const cdnUrl = getCdnUrl(data.content.download_url);
+                    saveToHistory(cdnUrl, file.type);
                 } else {
                     console.error(`Error uploading ${file.name}:`, data.message);
                 }
@@ -136,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('ghHistory', JSON.stringify(history));
     }
 
-    // 7. Render History List
+    // --- Render History List ---
     function renderHistory() {
         historyList.innerHTML = '';
         let history = JSON.parse(localStorage.getItem('ghHistory')) || [];
@@ -145,14 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement('div');
             div.className = 'history-item';
             
-            // Safely check type in case older history items don't have it
-            const itemType = item.type || 'unknown'; 
-            const isImage = itemType.startsWith('image/');
+            const isImage = item.type.startsWith('image/');
             
+            // Reverted back to window.open for Custom Tabs implementation
             const thumb = isImage 
-                ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${itemType}')" alt="thumbnail">` 
-                : `<div class="history-thumb" onclick="openPreview('${item.url}', '${itemType}')">${itemType.split('/')[0].toUpperCase() || 'FILE'}</div>`;
-            
+                ? `<img src="${item.url}" class="history-thumb" onclick="window.open('${item.url}', '_blank')" alt="thumbnail">` 
+                : `<div class="history-thumb" onclick="window.open('${item.url}', '_blank')">${item.type.split('/')[0].toUpperCase() || 'FILE'}</div>`;
             const markdownCode = isImage ? `![Image](${item.url})` : `[File](${item.url})`;
 
             div.innerHTML = `
@@ -169,17 +186,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 8. Global Functions (Clipboard & Delete)
+    // --- Global Functions ---
     window.copyToClipboard = function(element) {
         element.select();
         navigator.clipboard.writeText(element.value);
         
         const originalBg = element.style.backgroundColor;
+        const originalColor = element.style.color;
+        
         element.style.backgroundColor = '#2ea44f';
         element.style.color = '#fff';
+        
         setTimeout(() => {
             element.style.backgroundColor = originalBg;
-            element.style.color = '';
+            element.style.color = originalColor;
         }, 300);
     }
 
@@ -190,68 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderHistory();
     }
 
-    // 9. Bulletproof Preview Modal Logic
-    window.openPreview = function(url, type) {
-        const modal = document.getElementById('preview-modal');
-        let container = document.getElementById('modal-content-container');
-        
-        // Fallback for legacy items without a type
-        if (!type || type === 'undefined' || type === 'unknown') {
-            type = 'image/png'; 
-        }
-
-        // Auto-fix if cached HTML is still using the old modal structure
-        if (!container) {
-            const oldImg = document.getElementById('modal-image');
-            if (oldImg) {
-                oldImg.outerHTML = '<div id="modal-content-container" class="modal-content"></div>';
-                container = document.getElementById('modal-content-container');
-            } else {
-                return alert("Modal container not found. Please clear cache and reload.");
-            }
-        }
-
-        container.innerHTML = ''; // Clear previous content
-
-        // Inject media with explicit inline styles to force correct sizing
-        if (type.startsWith('image/')) {
-            container.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; margin: auto;">`;
-        } else if (type.startsWith('video/')) {
-            container.innerHTML = `<video controls autoplay name="media" style="max-width: 90vw; max-height: 80vh; margin: auto; display: block;"><source src="${url}" type="${type}"></video>`;
-        } else if (type.startsWith('audio/')) {
-            container.innerHTML = `<audio controls autoplay name="media" style="width: 80vw; margin: auto; display: block;"><source src="${url}" type="${type}"></audio>`;
-        } else {
-            // Fallback for ZIPs, PDFs, etc.
-            window.open(url, '_blank');
-            return; 
-        }
-
-        // Force Flexbox centering directly on the modal element to override any CSS mismatches
-        modal.style.display = "flex";
-        modal.style.alignItems = "center";
-        modal.style.justifyContent = "center";
-        
-        const closeBtn = document.querySelector('.close-modal');
-        if (closeBtn) {
-            closeBtn.style.position = "absolute";
-            closeBtn.style.top = "15px";
-            closeBtn.style.right = "25px";
-            closeBtn.style.zIndex = "1001";
-        }
-    }
-
-    const closeModalBtn = document.querySelector('.close-modal');
-    if (closeModalBtn) {
-        closeModalBtn.onclick = function() {
-            const modal = document.getElementById('preview-modal');
-            const container = document.getElementById('modal-content-container');
-            
-            modal.style.display = "none";
-            if (container) container.innerHTML = ''; // Stops audio/video playback
-        }
-    }
-
-    // 10. Retrieve Multiple Shared Files from PWA Cache
+    // --- PWA File Share Extraction ---
     async function checkSharedFiles() {
         if ('caches' in window) {
             const cache = await caches.open('shared-files');
@@ -280,6 +239,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initial render
     renderHistory();
 });
