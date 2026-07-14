@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
     }
 
     const tokenInput = document.getElementById('gh-token');
     const repoInput = document.getElementById('gh-repo');
+    const folderInput = document.getElementById('gh-folder'); // New folder element
     const fileInput = document.getElementById('file-input');
     const uploadBtn = document.getElementById('upload-btn');
     const statusMsg = document.getElementById('status-message');
@@ -14,8 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load saved credentials
     tokenInput.value = localStorage.getItem('ghToken') || '';
     repoInput.value = localStorage.getItem('ghRepo') || '';
+    folderInput.value = localStorage.getItem('ghFolder') || ''; // Load saved folder
 
-    // Check if opened from Android Share Sheet
     checkSharedFile();
 
     uploadBtn.addEventListener('click', async () => {
@@ -24,12 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const token = tokenInput.value.trim();
         const repo = repoInput.value.trim();
+        const folder = folderInput.value.trim(); // Get folder value
         
         if (!token || !repo) return alert('Token and Repo are required.');
 
         // Save credentials for next time
         localStorage.setItem('ghToken', token);
         localStorage.setItem('ghRepo', repo);
+        localStorage.setItem('ghFolder', folder); // Save folder preference
 
         statusMsg.innerText = 'Uploading...';
         uploadBtn.disabled = true;
@@ -37,7 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const base64Data = await toBase64(file);
             const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-            const path = `uploads/${fileName}`;
+            
+            // Set path: if folder is blank, use just fileName (root). Otherwise, folder/fileName
+            const path = folder ? `${folder}/${fileName}` : fileName;
 
             const response = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
                 method: 'PUT',
@@ -70,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
-                // Remove the data:image/png;base64, prefix for GitHub API
                 const b64 = reader.result.split(',')[1];
                 resolve(b64);
             };
@@ -110,7 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Modal Logic
     window.openPreview = function(url) {
         const modal = document.getElementById('preview-modal');
         const modalImg = document.getElementById('modal-image');
@@ -122,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('preview-modal').style.display = "none";
     }
 
-    // PWA Share Sheet Logic: Retrieve file cached by sw.js
     async function checkSharedFile() {
         if ('caches' in window) {
             const cache = await caches.open('shared-files');
@@ -131,7 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const blob = await response.blob();
                 const file = new File([blob], "shared_upload", { type: blob.type });
                 
-                // Create a DataTransfer object to assign the file to the input element
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
@@ -142,6 +142,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initial render
     renderHistory();
 });
