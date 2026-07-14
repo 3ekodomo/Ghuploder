@@ -11,13 +11,14 @@
 <body>
     <div class="container">
         <header>
-    <h1>GH Uploader</h1>
-    <p>Upload directly to GitHub Pages</p>
-    <select id="theme-selector">
-        <option value="light">Light Mode</option>
-        <option value="dark">Dark Mode</option>
-        <option value="black">Amoled Black</option>
-    </select>
+            <h1>GH Uploader</h1>
+            <p>Upload directly to GitHub Pages</p>
+            
+            <select id="theme-selector">
+                <option value="light">Light Mode</option>
+                <option value="dark">Dark Mode</option>
+                <option value="black">Amoled Black</option>
+            </select>
         </header>
 
         <section class="config-section">
@@ -26,16 +27,15 @@
             <input type="text" id="gh-folder" placeholder="Folder (leave blank for root)" />
         </section>
 
-<section class="upload-section">
-    <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip, video/*, audio/*" multiple />
-    
-    <div class="action-buttons">
-        <button id="paste-btn">Paste Image</button>
-        <button id="upload-btn">Upload File(s)</button>
-    </div>
-    <div id="status-message"></div>
-</section>
-
+        <section class="upload-section">
+            <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip, video/*, audio/*" multiple />
+            
+            <div class="action-buttons">
+                <button id="paste-btn">Paste Image</button>
+                <button id="upload-btn">Upload File(s)</button>
+            </div>
+            <div id="status-message"></div>
+        </section>
 
         <section class="history-section">
             <h2>Upload History</h2>
@@ -45,14 +45,9 @@
 
     <div id="preview-modal" class="modal">
         <span class="close-modal">&times;</span>
-        <img class="modal-content" id="modal-image">
-    </div>
-
-    <script src="app.js"></script>
-      <div id="preview-modal" class="modal">
-        <span class="close-modal">&times;</span>
         <div id="modal-content-container" class="modal-content"></div>
     </div>
 
+    <script src="app.js"></script>
 </body>
 </html>
