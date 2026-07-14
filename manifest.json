@@ -1,7 +1,7 @@
 {
   "name": "GH Uploader",
   "short_name": "Uploader",
-  "start_url": "/index.html",
+  "start_url": "./index.html", 
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2ea44f",
@@ -13,7 +13,7 @@
     }
   ],
   "share_target": {
-    "action": "/share-target",
+    "action": "./share-target", 
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
