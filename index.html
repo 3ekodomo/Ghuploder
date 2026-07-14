@@ -1,47 +1,184 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GH Uploader</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#f6f8fa" id="theme-meta">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>GH Uploader</h1>
-            <p>Upload directly to GitHub Pages</p>
-            <select id="theme-selector">
-                <option value="light">Light Mode</option>
-                <option value="dark">Dark Mode</option>
-                <option value="black">Amoled Black</option>
-            </select>
-        </header>
+/* --- Theme Variables --- */
+:root {
+    --bg-color: #f6f8fa;
+    --card-bg: #ffffff;
+    --primary: #2ea44f;
+    --text: #24292f;
+    --border: #d0d7de;
+}
 
-        <section class="config-section">
-            <input type="password" id="gh-token" placeholder="GitHub Personal Access Token" />
-            <input type="text" id="gh-repo" placeholder="Owner/Repo (e.g., yourname/gh-uploader)" />
-            <input type="text" id="gh-folder" placeholder="Folder (leave blank for root)" />
-        </section>
+[data-theme="dark"] {
+    --bg-color: #0d1117;
+    --card-bg: #161b22;
+    --text: #e6edf3;
+    --border: #30363d;
+}
 
-        <section class="upload-section">
-            <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip, video/*, audio/*" multiple />
-            
-            <div class="action-buttons">
-                <button id="paste-btn">Paste Image</button>
-                <button id="upload-btn">Upload File(s)</button>
-            </div>
-            <div id="status-message"></div>
-        </section>
+[data-theme="black"] {
+    --bg-color: #000000;
+    --card-bg: #000000;
+    --text: #e6edf3;
+    --border: #333333;
+}
 
-        <section class="history-section">
-            <h2>Upload History</h2>
-            <div id="history-list"></div>
-        </section>
-    </div>
+/* --- Global Styles --- */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    transition: background-color 0.3s, color 0.3s;
+}
 
-    <script src="app.js"></script>
-</body>
-</html>
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* --- Inputs and Selectors --- */
+input[type="text"], 
+input[type="password"], 
+input[type="file"],
+#theme-selector {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-sizing: border-box;
+    background-color: var(--card-bg);
+    color: var(--text);
+}
+
+#theme-selector {
+    width: auto;
+    display: inline-block;
+    padding: 8px;
+    cursor: pointer;
+}
+
+/* --- Buttons --- */
+button {
+    background-color: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 20px; 
+    cursor: pointer;
+    font-weight: 600;
+    width: 100%;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+button:hover {
+    background-color: var(--primary);
+    color: #ffffff;
+}
+
+button:disabled {
+    border-color: #94d3a2;
+    color: #94d3a2;
+    cursor: not-allowed;
+}
+
+button:disabled:hover {
+    background-color: transparent;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.action-buttons button {
+    flex: 1;
+    padding: 12px 16px;
+}
+
+.delete-btn {
+    border: 2px solid #cf222e;
+    color: #cf222e;
+    padding: 8px 10px;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.delete-btn:hover { 
+    background-color: #cf222e; 
+    color: #ffffff;
+}
+
+/* --- History Section --- */
+.history-section {
+    margin-top: 30px;
+}
+
+.history-item {
+    display: flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    gap: 15px;
+    align-items: center;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.history-thumb {
+    width: 100px;
+    height: 100px;
+    min-width: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-color);
+    font-weight: bold;
+    color: var(--text);
+    overflow: hidden;
+}
+
+.history-thumb:hover {
+    opacity: 0.8;
+}
+
+.history-details {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.history-details label {
+    font-size: 12px;
+    margin-bottom: 3px;
+    font-weight: 600;
+}
+
+.history-details input {
+    font-family: monospace;
+    font-size: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-overflow: ellipsis;
+}
+
+/* --- Status Message --- */
+#status-message {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: bold;
+    min-height: 20px;
+}
