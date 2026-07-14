@@ -140,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const isImage = item.type.startsWith('image/');
             // Replaced modal click with window.open to open in Chrome directly
             const thumb = isImage ? `<img src="${item.url}" class="history-thumb" onclick="window.open('${item.url}', '_blank')" alt="thumbnail">` : `<div class="history-thumb" onclick="window.open('${item.url}', '_blank')">File</div>`;
+          const thumb = isImage 
+    ? `<img src="${item.url}" class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')" alt="thumbnail">` 
+    : `<div class="history-thumb" onclick="openPreview('${item.url}', '${item.type}')">${item.type.split('/')[0].toUpperCase() || 'FILE'}</div>`;
+
             const markdownCode = isImage ? `![Image](${item.url})` : `[File](${item.url})`;
 
             div.innerHTML = `
