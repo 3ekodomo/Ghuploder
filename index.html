@@ -3,45 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GH Uploader</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#f6f8fa" id="theme-meta">
+    <title>GH Manager - Image Tools</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background-color: #f4f4f9;
+        }
+        .image-card { 
+            background: white;
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            padding: 15px; 
+            margin: 10px; 
+            display: inline-block; 
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .image-card img { 
+            max-width: 250px; 
+            max-height: 250px;
+            display: block; 
+            margin: 0 auto 10px auto; 
+            border-radius: 4px;
+        }
+        button { 
+            margin: 5px; 
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer; 
+        }
+        button:hover { background-color: #0056b3; }
+        
+        #compressModal {
+            display: none; 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>GH Uploader</h1>
-            <p>Upload directly to GitHub Pages</p>
-            <select id="theme-selector">
-                <option value="light">Light Mode</option>
-                <option value="dark">Dark Mode</option>
-                <option value="black">Amoled Black</option>
-            </select>
-        </header>
+    <h1>Repository Image Manager</h1>
 
-        <section class="config-section">
-            <input type="password" id="gh-token" placeholder="GitHub Personal Access Token" />
-            <input type="text" id="gh-repo" placeholder="Owner/Repo (e.g., yourname/gh-uploader)" />
-            <input type="text" id="gh-folder" placeholder="Folder (leave blank for root)" />
-        </section>
+    <!-- Local upload to test the features -->
+    <div style="margin-bottom: 20px;">
+        <label for="uploadInput"><strong>Add images to repository view: </strong></label>
+        <input type="file" id="uploadInput" accept="image/*" multiple>
+    </div>
+    
+    <div id="imageGallery"></div>
 
-        <section class="upload-section">
-            <input type="file" id="file-input" accept="image/*, .pdf, .txt, .zip, video/*, audio/*" multiple />
-            
-            <div class="action-buttons">
-                <button id="paste-btn">Paste Image</button>
-                <button id="upload-btn">Upload File(s)</button>
-            </div>
-            <div id="status-message"></div>
-        </section>
+    <!-- Hidden file input for the Edit workflow -->
+    <input type="file" id="editFileInput" style="display: none;" accept="image/*">
 
-        <section class="history-section">
-            <h2>Upload History</h2>
-            <div id="history-list"></div>
-        </section>
+    <!-- Compression Modal & Overlay -->
+    <div id="modalOverlay" class="overlay"></div>
+    <div id="compressModal">
+        <h3>Compress Image</h3>
+        <input type="range" id="qualitySlider" min="0.1" max="1.0" step="0.1" value="0.8">
+        <p>Quality: <strong id="qualityDisplay">80%</strong></p>
+        <button id="applyCompressBtn">Apply Compression</button>
+        <button onclick="closeModal()" style="background-color: #6c757d;">Cancel</button>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        let currentEditingFile = null;
+        let currentEditingCard = null;
+
+        // --- GALLERY SETUP FOR TESTING ---
+        document.getElementById('uploadInput').addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            files.forEach(file => addImageToGallery(file));
+            e.target.value = ''; 
+        });
+
+        function addImageToGallery(file) {
+            const gallery = document.getElementById('imageGallery');
+            const card = document.createElement('div');
+            card.className = 'image-card';
+            card.dataset.filename = file.name;
+
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            
+            const title = document.createElement('p');
+            title.innerHTML = `<strong>${file.name}</strong><br>${(file.size / 1024).toFixed(1)} KB`;
+
+            const compressBtn = document.createElement('button');
+            compressBtn.innerText = 'Compress';
+            compressBtn.onclick = () => openCompressModal(file, card);
+
+            const editBtn = document.createElement('button');
+            editBtn.innerText = 'Edit (External)';
+            editBtn.onclick = () => triggerEditReplace(file, card);
+
+            card.appendChild(img);
+            card.appendChild(title);
+            card.appendChild(compressBtn);
+            card.appendChild(editBtn);
+            gallery.appendChild(card);
+        }
+
+        // --- COMPRESS WORKFLOW ---
+        function openCompressModal(file, cardElement) {
+            currentEditingFile = file;
+            currentEditingCard = cardElement;
+            const modal = document.getElementById('compressModal');
+            const overlay = document.getElementById('modalOverlay');
+            const slider = document.getElementById('qualitySlider');
+            const display = document.getElementById('qualityDisplay');
+            
+            slider.oninput = () => { display.innerText = `${Math.round(slider.value * 100)}%`; };
+            modal.style.display = 'block';
+            overlay.style.display = 'block';
+
+            document.getElementById('applyCompressBtn').onclick = () => {
+                compressAndReplace(currentEditingFile, parseFloat(slider.value));
+                closeModal();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('compressModal').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+
+        function compressAndReplace(file, quality) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    canvas.toBlob((blob) => {
+                        const newFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        updateRepositoryFile(newFile, currentEditingCard);
+                    }, 'image/jpeg', quality);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- EDIT WORKFLOW ---
+        function triggerEditReplace(file, cardElement) {
+            currentEditingFile = file;
+            currentEditingCard = cardElement;
+            
+            // Trigger local download
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Open picker to upload the edited version
+            const fileInput = document.getElementById('editFileInput');
+            fileInput.onchange = (e) => {
+                const uploadedFile = e.target.files[0];
+                if (uploadedFile) {
+                    const replacedFile = new File([uploadedFile], currentEditingFile.name, {
+                        type: uploadedFile.type,
+                        lastModified: Date.now()
+                    });
+                    updateRepositoryFile(replacedFile, currentEditingCard);
+                }
+                fileInput.value = ''; 
+            };
+            
+            // Slight timeout ensures download prompt fires before upload prompt
+            setTimeout(() => { fileInput.click(); }, 300);
+        }
+
+        // --- UI REFRESH WORKFLOW ---
+        function updateRepositoryFile(newFile, cardElement) {
+            const imgElement = cardElement.querySelector('img');
+            const titleElement = cardElement.querySelector('p');
+            const buttons = cardElement.querySelectorAll('button');
+            
+            // Release old memory
+            URL.revokeObjectURL(imgElement.src);
+            
+            imgElement.src = URL.createObjectURL(newFile);
+            titleElement.innerHTML = `<strong>${newFile.name}</strong><br>${(newFile.size / 1024).toFixed(1)} KB <span style="color: green;">(Updated)</span>`;
+            
+            buttons[0].onclick = () => openCompressModal(newFile, cardElement);
+            buttons[1].onclick = () => triggerEditReplace(newFile, cardElement);
+        }
+    </script>
 </body>
 </html>
